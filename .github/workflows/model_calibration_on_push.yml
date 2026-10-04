@@ -1,0 +1,35 @@
+name: Model Calibration on Push
+on:
+  workflow_run:
+    workflows: ["Model Retraining on Push"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  calibrate:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Calibrate latest model
+        run: python -m src.calibrate_model
+      - name: Commit and push calibrated model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add models metrics
+          git commit -m "Add calibrated model" || echo "Nothing to commit"
+          git pull --rebase origin main
+          git push
